@@ -133,6 +133,8 @@ public class ScriptManager
                     locale = eventCues.JpCues;
                 else
                     locale = eventCues.EnCues;
+                try
+                {
                 foreach (Turn turn in this.BMDFiles[key].Turns)
                     for (int indWithinTurn=0; indWithinTurn<turn.Elems.Length; indWithinTurn++)
                         foreach (Node node in this.Parse(turn.Elems[indWithinTurn], isJP))
@@ -141,8 +143,13 @@ public class ScriptManager
                             {
                                 string turnName = this.Parse(turn.Name, isJP)[0].Text;
                                 string speakerName = "";
-                                if (turn.SpeakerId == 0xFFFF && turnName.StartsWith("MND_"))
-                                    speakerName = "Joker";
+                                if (turn.SpeakerId == 0xFFFF)
+                                {
+                                    if (turnName.StartsWith("MND_"))
+                                        speakerName = "(JOKER)";
+                                    else
+                                        speakerName = "(SYSTEM)";
+                                }
                                 else
                                     speakerName = this.Parse(this.BMDFiles[key].Speakers[turn.SpeakerId], isJP)[0].Text;
                                 if (node.FunctionTableIndex == 3 && node.FunctionIndex == 1 && node.FunctionArguments[3] != 0)
@@ -172,6 +179,8 @@ public class ScriptManager
                                 }
                             } catch (Exception ex) { Trace.TraceError(ex.ToString()); }
                         }
+                // seems like sometimes the BMDFile can be null... or the Turns can be null? unclear
+                } catch (Exception ex) { Trace.TraceError(ex.ToString()); }
             }
             return eventCues;
         }
