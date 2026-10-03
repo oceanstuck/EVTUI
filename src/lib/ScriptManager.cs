@@ -104,7 +104,7 @@ public class ScriptManager
     private string GameName;
     private Dictionary<(byte, byte), string> EnCharLookup;
     private Dictionary<(byte, byte), string> JpCharLookup;
-    private AtlusEncoding Encoding => GetEncodingFromLang(config.Language);
+    private AtlusEncoding Encoding;
     private static Dictionary<string, string> CpkLanguages = new()
     {
         { "EN.CPK", "English" },
@@ -402,15 +402,16 @@ public class ScriptManager
     public AtlusEncoding GetEncodingFromLang(string language) => GetEncodingFromLangCode(GetLangCodeFromLang(language));
     private AtlusEncoding GetEncodingFromLangCode(string langCode)
     {
+        bool p5r = config.ProjectManager.ActiveGame.Type.StartsWith("P5R");
         try
         {
-            var charsetName = config.ProjectManager.ActiveGame.Type.StartsWith("P5R") ? LangCodeToP5REncoding[langCode] : LangCodeToP5Encoding[langCode];
+            var charsetName = p5r ? LangCodeToP5REncoding[langCode] : LangCodeToP5Encoding[langCode];
             //return AtlusEncoding.Create(charsetName);
             return AtlusEncoding.GetByName(charsetName);
         }
         catch (Exception e)
         {
-            return AtlusEncoding.Persona5RoyalEFIGS;
+            return p5r ? AtlusEncoding.Persona5RoyalEFIGS : AtlusEncoding.Persona5;
         }
     }
 
@@ -508,6 +509,7 @@ public class ScriptManager
         }
         else
         {
+            // TODO: error reporting if compilation fails
             var log = string.Empty;
             if (script.scriptKind == "BF")
             {
@@ -525,8 +527,9 @@ public class ScriptManager
             else
             {
                 var success = TryCompileBMD(script.msgPath, out var msgScript, out log);
-                if (success)
-                    msgScript.ToFile(Path.Combine(config.ProjectManager.ModdedFileDir, script.path));
+                if (!success)
+                    return;
+                msgScript.ToFile(Path.Combine(config.ProjectManager.ModdedFileDir, script.path));
                 if (script.localizedMsgPaths is not null)
                     foreach (var (langcode, msg) in script.localizedMsgPaths)
                     {
@@ -570,7 +573,7 @@ public class ScriptManager
             compiler.EnableProcedureTracing = false;
             compiler.AddListener(listener);
 
-            success = compiler.TryCompile(flowPath, out script);
+            success = compiler.TryCompile(fileTexts[flowPath], out script);
         }
         catch (Exception ex)
         {
@@ -608,11 +611,11 @@ public class ScriptManager
 
         try
         {
-            var compiler = new MessageScriptCompiler(MsgFormatVersion.Version1BigEndian, Encoding);
+            var compiler = new MessageScriptCompiler(MsgFormatVersion.Version1BigEndian, encoding);
             compiler.Library = LibraryLookup.GetLibrary(GameName);
             compiler.AddListener(listener);
 
-            success = compiler.TryCompile(msgPath, out script);
+            success = compiler.TryCompile(fileTexts[msgPath], out script);
         }
         catch (Exception ex)
         {
@@ -808,6 +811,7 @@ public class ScriptManager
             this.EnCharLookup = CharLookup("P5");
             this.JpCharLookup = this.EnCharLookup;
         }
+        this.Encoding = GetEncodingFromLang(config.Language);
 
         foreach (var vanillaBf in config.EventManager.VanillaBfPaths)
         {
@@ -951,24 +955,30 @@ public class ScriptManager
             // create info for files that don't already exist
             var evt = config.EventManager.SerialEvent;
 
-            var bf = new ModdedScriptInfo(Path.Combine("EN.CPK", (evt.EventBfPath is null) ? $"event_data/script/e{(100 * (evt.MajorId / 100)):000}/e{evt.MajorId:000}_{evt.MinorId:000}.bf" : evt.EventBfPath.Replace("\0", "")), "BF", bfEmuEnabled);
-            bf.flowPath = bfEmuEnabled ? Path.Combine(emulatedBfDir, Path.GetFileNameWithoutExtension(bf.pathInCpk)) + ".flow" : Path.ChangeExtension(Path.Combine(moddedFileDir, bf.path), ".flow");
-            bf.msgPath = Path.ChangeExtension(bf.flowPath, ".msg");
-            fileTexts[bf.flowPath] = File.Exists(bf.flowPath) ? File.ReadAllText(bf.flowPath) : string.Empty;
-            fileTexts[bf.msgPath] = File.Exists(bf.msgPath) ? File.ReadAllText(bf.msgPath) : string.Empty;
-            bf.log = null;
-            bf.localizedFlowPaths = locFrameworkEnabled ? new() : null;
-            bf.localizedMsgPaths = locFrameworkEnabled ? new() : null;
-            ModdedScripts.Add(bf);
+            if (!ModdedScripts.Exists(s => s.scriptKind == "BF"))
+            {
+                var bf = new ModdedScriptInfo(Path.Combine("EN.CPK", (evt.EventBfPath is null) ? $"event_data/script/e{(100 * (evt.MajorId / 100)):000}/e{evt.MajorId:000}_{evt.MinorId:000}.bf" : evt.EventBfPath.Replace("\0", "")), "BF", bfEmuEnabled);
+                bf.flowPath = bfEmuEnabled ? Path.Combine(emulatedBfDir, Path.GetFileNameWithoutExtension(bf.pathInCpk)) + ".flow" : Path.ChangeExtension(Path.Combine(moddedFileDir, bf.path), ".flow");
+                bf.msgPath = Path.ChangeExtension(bf.flowPath, ".msg");
+                fileTexts[bf.flowPath] = File.Exists(bf.flowPath) ? File.ReadAllText(bf.flowPath) : string.Empty;
+                fileTexts[bf.msgPath] = File.Exists(bf.msgPath) ? File.ReadAllText(bf.msgPath) : string.Empty;
+                bf.log = null;
+                bf.localizedFlowPaths = locFrameworkEnabled ? new() : null;
+                bf.localizedMsgPaths = locFrameworkEnabled ? new() : null;
+                ModdedScripts.Add(bf);
+            }
 
-            var bmd = new ModdedScriptInfo(Path.Combine("EN.CPK", (evt.EventBmdPath is null) ? $"event_data/message/e{(100 * (evt.MajorId / 100)):000}/e{evt.MajorId:000}_{evt.MinorId:000}.bmd" : evt.EventBmdPath.Replace("\0", "")), "BMD", bmdEmuEnabled);
-            bmd.flowPath = null;
-            bmd.msgPath = bmdEmuEnabled ? Path.Combine(emulatedBmdDir, Path.GetFileNameWithoutExtension(bmd.pathInCpk)) + ".msg" : Path.ChangeExtension(Path.Combine(moddedFileDir, bmd.path), ".msg");
-            fileTexts[bmd.msgPath] = File.Exists(bmd.msgPath) ? File.ReadAllText(bmd.msgPath) : string.Empty;
-            bmd.log = null;
-            bmd.localizedFlowPaths = null;
-            bmd.localizedMsgPaths = locFrameworkEnabled ? new() : null;
-            ModdedScripts.Add(bmd);
+            if (!ModdedScripts.Exists(s => s.scriptKind == "BMD"))
+            {
+                var bmd = new ModdedScriptInfo(Path.Combine("EN.CPK", (evt.EventBmdPath is null) ? $"event_data/message/e{(100 * (evt.MajorId / 100)):000}/e{evt.MajorId:000}_{evt.MinorId:000}.bmd" : evt.EventBmdPath.Replace("\0", "")), "BMD", bmdEmuEnabled);
+                bmd.flowPath = null;
+                bmd.msgPath = bmdEmuEnabled ? Path.Combine(emulatedBmdDir, Path.GetFileNameWithoutExtension(bmd.pathInCpk)) + ".msg" : Path.ChangeExtension(Path.Combine(moddedFileDir, bmd.path), ".msg");
+                fileTexts[bmd.msgPath] = File.Exists(bmd.msgPath) ? File.ReadAllText(bmd.msgPath) : string.Empty;
+                bmd.log = null;
+                bmd.localizedFlowPaths = null;
+                bmd.localizedMsgPaths = locFrameworkEnabled ? new() : null;
+                ModdedScripts.Add(bmd);
+            }
         }
 
         // TODO: populate this.BMDFiles so that message preview in timeline tab works
