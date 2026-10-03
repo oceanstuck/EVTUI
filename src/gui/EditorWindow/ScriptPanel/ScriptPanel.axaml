@@ -46,8 +46,11 @@
                IsVisible="{Binding Editable}"
                Margin="10"
                ToolTip.Tip="Test Compilation">
-                <PathIcon Data="{StaticResource wrench_regular}"/>
-        </Button>
+                <StackPanel Orientation="Horizontal" Spacing="10">
+                  <PathIcon Data="{StaticResource wrench_regular}"/>
+                  <TextBox IsReadOnly="true">Test Compilation</TextBox>
+                </StackPanel>
+              </Button>
             </StackPanel>
           </Flyout>
         </Button.Flyout>

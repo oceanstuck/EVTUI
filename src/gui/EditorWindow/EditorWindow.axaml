@@ -252,6 +252,9 @@
           <MenuItem Header="Reload ECS" IsEnabled="false"/>
         </MenuItem>
       </Menu>
+      <Button Click="OpenModFolder" IsEnabled="{Binding !Config.ReadOnly}" ToolTip.Tip="Open Mod Folder">
+        <PathIcon Data="{StaticResource folder_open_regular}" />
+      </Button>
       <Button Click="ToggleTheme">
         <PathIcon Data="{StaticResource dark_theme_regular}" />
       </Button>

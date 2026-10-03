@@ -6,6 +6,7 @@ using System.IO;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Interactivity;
+using Avalonia.Platform.Storage;
 using Avalonia.Styling;
 
 using EVTUI.ViewModels;
@@ -35,6 +36,24 @@ public partial class EditorWindow : Window
         {
             Trace.TraceError(ex.ToString());
             await Utils.RaiseModal(this, $"Failed to save due to unhandled exception:\n{ex.ToString()}");
+        }
+    }
+
+    public async void OpenModFolder(object? sender, RoutedEventArgs args)
+    {
+        try
+        {
+            var config = ((EditorWindowViewModel)DataContext).Config;
+            if (config.ReadOnly)
+                return;
+            var modFolder = config.ProjectManager.ActiveProject.Mod.Path;
+            await this.Launcher.LaunchDirectoryInfoAsync(new DirectoryInfo(modFolder));
+
+        }
+        catch (Exception ex)
+        {
+            Trace.TraceError(ex.ToString());
+            await Utils.RaiseModal(this, $"Failed to open folder due to unhandled exception:\n{ex.ToString()}");
         }
     }
 

@@ -104,7 +104,7 @@ public class ScriptManager
     private string GameName;
     private Dictionary<(byte, byte), string> EnCharLookup;
     private Dictionary<(byte, byte), string> JpCharLookup;
-    private AtlusEncoding Encoding;
+    private AtlusEncoding Encoding => GetEncodingFromLang(config.Language);
     private static Dictionary<string, string> CpkLanguages = new()
     {
         { "EN.CPK", "English" },
@@ -811,7 +811,6 @@ public class ScriptManager
             this.EnCharLookup = CharLookup("P5");
             this.JpCharLookup = this.EnCharLookup;
         }
-        this.Encoding = GetEncodingFromLang(config.Language);
 
         foreach (var vanillaBf in config.EventManager.VanillaBfPaths)
         {
