@@ -114,6 +114,8 @@ public class EditorWindowViewModel : ViewModelBase
     public ScriptPanelViewModel   scriptPanelVM   { get; private set; }
     public AudioPanelViewModel    audioPanelVM    { get; private set; }
 
+    public ObservableCollection<string> Languages { get; } = new() { "English", "Japanese", "French", "Italian", "German", "Spanish", "Korean", "Simplified Chinese", "Traditional Chinese" };
+
     ////////////////////////////
     // *** PUBLIC METHODS *** //
     ////////////////////////////
@@ -165,5 +167,4 @@ public class EditorWindowViewModel : ViewModelBase
                 break;
         }
     }
-
 }

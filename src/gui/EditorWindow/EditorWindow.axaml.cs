@@ -71,4 +71,11 @@ public partial class EditorWindow : Window
             await Utils.RaiseModal(this, $"Failed to normalize degree value due to unhandled exception:\n{ex.ToString()}");
         }
     }
+
+    public async void LangSelectionChanged(object source, SelectionChangedEventArgs e)
+    {
+        DataManager config = ((EditorWindowViewModel)DataContext).Config;
+        config.Language = ((ComboBox)source).SelectedItem.ToString();
+        config.ScriptManager.ChangeActiveScripts();
+    }
 }

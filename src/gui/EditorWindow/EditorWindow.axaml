@@ -234,6 +234,10 @@
 
   <DockPanel>
     <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" HorizontalAlignment="Right">
+      <ComboBox Name="LanguageDropdown"
+        ItemsSource="{Binding Languages}"
+        SelectedItem="English"
+        SelectionChanged="LangSelectionChanged" />
       <Menu>
         <MenuItem Header="Save" IsEnabled="{Binding !Config.ReadOnly}">
           <MenuItem Header="Save all" Click="SaveMod" />
