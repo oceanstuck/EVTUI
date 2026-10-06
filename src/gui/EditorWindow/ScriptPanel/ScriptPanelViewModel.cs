@@ -270,18 +270,17 @@ public class ScriptPanelViewModel : ViewModelBase
     public void UpdateSubfiles()
     {
         var moddedScript = Config.ScriptManager.ModdedScripts.First(s => s.path == this.SelectedCompiledScriptName);
-        string log;
         if (!moddedScript.isEmulated)
         {
             if (moddedScript.scriptKind == "BF" && !File.Exists(moddedScript.flowPath))
             {
-                Config.ScriptManager.TryDecompileBF(Path.Combine(Config.VanillaExtractionPath, moddedScript.path), moddedScript.flowPath, out log);
-                moddedScript.log = log;
+                Config.ScriptManager.TryDecompileBF(Path.Combine(Config.VanillaExtractionPath, moddedScript.path), moddedScript.flowPath, out var log);
+                Config.ScriptManager.ScriptErrors[moddedScript.path][ScriptManager.GetLangCodeFromLang(Config.Language)] = log;
             }
             else if (moddedScript.scriptKind == "BMD" && !File.Exists(moddedScript.msgPath))
             {
-                Config.ScriptManager.TryDecompileBMD(Path.Combine(Config.VanillaExtractionPath, moddedScript.path), moddedScript.msgPath, out log);
-                moddedScript.log = log;
+                Config.ScriptManager.TryDecompileBMD(Path.Combine(Config.VanillaExtractionPath, moddedScript.path), moddedScript.msgPath, out var log);
+                Config.ScriptManager.ScriptErrors[moddedScript.path][ScriptManager.GetLangCodeFromLang(Config.Language)] = log;
             }
         }
         bool moddedMsgExists = File.Exists(moddedScript.msgPath);
@@ -302,23 +301,27 @@ public class ScriptPanelViewModel : ViewModelBase
             this.SelectedDecompiledScriptName = null;
         }
 
-        this.CompilationLogs = moddedScript.log;
+        this.CompilationLogs = Config.ScriptManager.ScriptErrors[moddedScript.path][ScriptManager.GetLangCodeFromLang(Config.Language)];
     }
 
-    // there might be a cleaner option than having this as a separate function but it seems less annoying than refreshing both textboxes every time
+    public void UpdateLog()
+    {
+        var moddedScript = Config.ScriptManager.ModdedScripts.First(s => s.path == this.SelectedCompiledScriptName);
+        this.CompilationLogs = Config.ScriptManager.ScriptErrors[moddedScript.path][ScriptManager.GetLangCodeFromLang(Config.Language)];
+    }
+
+    // there might be a cleaner option than having this as a separate function but this seems less annoying than refreshing both textboxes every time
     public void UpdateVanillaSubfiles()
     {
         var vanillaScript = Config.ScriptManager.VanillaScripts.First(s => s.path == this.SelectedVanillaScriptName);
-        string log;
+        string log = string.Empty;
         if (vanillaScript.scriptKind == "BF" && !File.Exists(vanillaScript.flowPath))
         {
             Config.ScriptManager.TryDecompileBF(Path.Combine(Config.VanillaExtractionPath, vanillaScript.path), Config.ScriptManager.GetEncodingFromLang(vanillaScript.language), vanillaScript.flowPath, out log);
-            vanillaScript.log = log;
         }
         else if (vanillaScript.scriptKind == "BMD" && !File.Exists(vanillaScript.msgPath))
         {
             Config.ScriptManager.TryDecompileBMD(Path.Combine(Config.VanillaExtractionPath, vanillaScript.path), Config.ScriptManager.GetEncodingFromLang(vanillaScript.language), vanillaScript.msgPath, out log);
-            vanillaScript.log = log;
         }
 
         bool vanillaMsgExists = File.Exists(vanillaScript.msgPath);
@@ -339,7 +342,7 @@ public class ScriptPanelViewModel : ViewModelBase
             this.SelectedVanillaDecompiledScriptName = null;
         }
 
-        this.CompilationLogs = vanillaScript.log;
+        //this.CompilationLogs = log;
     }
 
     public void Compile()

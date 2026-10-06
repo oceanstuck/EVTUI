@@ -136,8 +136,8 @@ public class EventManager
         this.BmdPaths = await this.config.GetModFiles(prefix);
         this.EmulatedBmdPaths = this.config.GetEmulatedFileDummies(prefix, config.ProjectManager.ModdedFileDir);
         this.VanillaBmdPaths = this.config.GetGameFiles(prefix);
-        this.BmdPaths.Sort();
-        this.BmdPaths.Reverse();
+        //this.BmdPaths.Sort();
+        //this.BmdPaths.Reverse();
         await Task.Yield();
     }
 
@@ -152,8 +152,8 @@ public class EventManager
         this.BfPaths = await this.config.GetModFiles(prefix);
         this.EmulatedBfPaths = this.config.GetEmulatedFileDummies(prefix, config.ProjectManager.ModdedFileDir);
         this.VanillaBfPaths = this.config.GetGameFiles(prefix);
-        this.BfPaths.Sort();
-        this.BfPaths.Reverse();
+        //this.BfPaths.Sort();
+        //this.BfPaths.Reverse();
         await Task.Yield();
     }
 

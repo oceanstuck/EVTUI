@@ -45,10 +45,10 @@
                IsEnabled="{c:Binding HasDecompiledFiles and Editable}"
                IsVisible="{Binding Editable}"
                Margin="10"
-               ToolTip.Tip="Test Compilation">
+               ToolTip.Tip="Attempts to compile this file in order to reveal errors, but does not export to mod folder. This will also refresh message preview in the timeline view.">
                 <StackPanel Orientation="Horizontal" Spacing="10">
                   <PathIcon Data="{StaticResource wrench_regular}"/>
-                  <TextBox IsReadOnly="true">Test Compilation</TextBox>
+                  <TextBlock>Test Compilation</TextBlock>
                 </StackPanel>
               </Button>
             </StackPanel>

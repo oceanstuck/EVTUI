@@ -128,7 +128,7 @@ public class ScriptManager
         { "es", "P5" },
         { "ko", "P5_Korean" },
         { "zh-Hans", "P5_Chinese" },
-        { "zh-Hant", "P5R_Chinese" }
+        { "zh-Hant", "P5_Chinese" }
     };
     private static Dictionary<string, string> LangCodeToP5REncoding { get; } = new()
     {
@@ -147,24 +147,9 @@ public class ScriptManager
     // *** PUBLIC MEMBERS *** //
     ////////////////////////////
     public string?                                        ActiveBMD = null;
-    public string? ActiveVanillaBMD = null;
     public Dictionary<string, BMD>                        BMDFiles { get; }
-
     public string?                                        ActiveBF = null;
-    public string? ActiveVanillaBF = null;
-    //public Dictionary<string, BF>                         BFFiles { get; }
 
-    //public Dictionary<string, List<string>> vanillaScriptList { get; }
-    //public Dictionary<string, Dictionary<string, Dictionary<string, string>>> vanillaScriptTexts { get; }
-
-    //public Dictionary<string, List<string>>                                   ScriptList  { get; }
-    //public Dictionary<string, Dictionary<string, Dictionary<string, string>>> ScriptTexts { get; }
-    //public Dictionary<string, Dictionary<string, string>>                     ScriptErrors   { get; }
-    //public Dictionary<string, Dictionary<string, string>> VanillaScriptErrors { get; }
-
-    //public Dictionary<string, Dictionary<string, Dictionary<string, string>>> EmulatedScriptPaths { get; }
-    //public Dictionary<string, Dictionary<string, Dictionary<string, Dictionary<string, string>>>> LocalizedScriptPaths { get; }
-    //public Dictionary<string, Dictionary<string, Dictionary<string, Dictionary<string, Dictionary<string, string>>>>> LocalizedScriptTexts { get; }
     public static Dictionary<string, string> LangCodeDict { get; } = new()
     {
         { "English", "en" },
@@ -186,8 +171,6 @@ public class ScriptManager
         public string? flowPath;
         public string? msgPath;
 
-        public string? log;
-
         // additional script files imported by the main .flow
         //public List<string> additionalFlowPaths;
         //public List<string> additionalMsgPaths;
@@ -198,13 +181,14 @@ public class ScriptManager
     }
     public record ModdedScriptInfo(string path, string scriptKind, bool isEmulated) : ScriptInfo(path, scriptKind)
     {
-        public Dictionary<string, string> localizedFlowPaths; // can't think of a lot of cases where one would do this but eh
+        public Dictionary<string, string> localizedFlowPaths; // most cases of this being used will probably be non-emu bfs. emulated ones *could* use it but there arent a lot of cases where you would
         public Dictionary<string, string> localizedMsgPaths;
     }
 
     public List<VanillaScriptInfo> VanillaScripts { get; }
     public List<ModdedScriptInfo> ModdedScripts { get; }
-    public Dictionary<string, string?> fileTexts { get; }
+    public Dictionary<string, string?> fileTexts { get; } // full path to decomped file as key, text of file as value
+    public Dictionary<string, Dictionary<string, string>> ScriptErrors { get; } // script object's path member as top-level key, langcode as nested key, error text as nested value. (not using script object directly as its fields are mutable)
 
     // TODO: this definitely belongs... somewhere else. probably in the actual AudioPreview ViewModel
     public AudioCues EventCues
@@ -357,21 +341,11 @@ public class ScriptManager
         VanillaScripts = new List<VanillaScriptInfo>();
         ModdedScripts = new List<ModdedScriptInfo>();
         fileTexts = new Dictionary<string, string>();
+        ScriptErrors = new();
 
-        //this.ScriptErrors = new Dictionary<string, Dictionary<string, string>>();
-        //VanillaScriptErrors = new();
-
-        foreach (string scriptType in new[] { "BMD", "BF" })
-        {
-            if (scriptType == "BMD")
-                this.BMDFiles = new Dictionary<string, BMD>();
-            // TODO: actually make BF Serializable :')
-            //else
-            //    this.BFFiles = new Dictionary<string, BF>();
-
-            //this.ScriptErrors[scriptType] = new Dictionary<string, string>();
-            //VanillaScriptErrors[scriptType] = new();
-        }
+        this.BMDFiles = new();
+        // TODO: actually make BF Serializable :')
+        // this.BFFiles = new();
     }
 
     public void Dispose()
@@ -379,9 +353,8 @@ public class ScriptManager
         VanillaScripts.Clear();
         ModdedScripts.Clear();
         fileTexts.Clear();
+        ScriptErrors.Clear();
 
-        //this.ScriptErrors.Clear();
-        //VanillaScriptErrors.Clear();
         this.config = null;
     }
 
@@ -415,74 +388,18 @@ public class ScriptManager
         }
     }
 
-    /*public void SaveScript(string scriptType, string workingDir, string modDir, string emuDir)
+    public void ExportScripts(Func<ModdedScriptInfo, bool> predicate, out List<string> failed)
     {
-        if (emuDir is not null && !Directory.Exists(Path.Combine(emuDir, scriptType)))
-            Directory.CreateDirectory(Path.Combine(emuDir, scriptType));
-        foreach (string script in this.ScriptList[scriptType])
-        {
-            // for now, only saves the active script...
-            // there's probably a better way to do this, but i think the UI needs to be a bit clearer
-            // for now, this at least is better than the hardcoding there was before, but TODO
-            if ((scriptType == "BMD" && script == this.ActiveBMD) || (scriptType == "BF" && script == this.ActiveBF))
-            {
-                if (!Directory.Exists(Path.GetDirectoryName(Path.Combine(modDir, script))))
-                    Directory.CreateDirectory(Path.GetDirectoryName(Path.Combine(modDir, script)));
-
-                bool isEmulated = EmulatedScriptPaths[scriptType].ContainsKey(script);
-                if (isEmulated)
-                {
-                    File.Create(Path.Combine(modDir, script)).Dispose(); // create dummy file
-                    foreach (var ext in new[] { ".flow", ".msg" })
-                    {
-                        if (ScriptTexts[scriptType][script].ContainsKey(ext))
-                        {
-                            var scriptPath = EmulatedScriptPaths[scriptType][script][ext];
-                            if (!Directory.Exists(Path.GetDirectoryName(scriptPath)))
-                                Directory.CreateDirectory(Path.GetDirectoryName(scriptPath));
-                            File.WriteAllText(scriptPath, ScriptTexts[scriptType][script][ext]);
-                        }
-                    }
-                }
-                else
-                {
-                    if (scriptType == "BF")
-                        CompileScript(modDir, script);
-                    else
-                        CompileMessage(modDir, script);
-                }
-
-                if (emuDir is null)
-                    File.Copy(Path.Combine(workingDir, script), Path.Combine(modDir, script), true);
-                else
-                {
-                    File.Create(Path.Combine(modDir, script)).Dispose();
-                    foreach (string ext in new[] { ".flow", ".msg" })
-                        if (this.ScriptTexts[scriptType][script].ContainsKey(ext))
-                        {
-                            // if they already have full path femu, fine, just use that
-                            if (File.Exists(this.BasePath(Path.Combine(emuDir, scriptType), script)+ext))
-                                File.Copy(this.BasePath(workingDir, script)+ext, this.BasePath(Path.Combine(emuDir, scriptType), script)+ext, true);
-                            // otherwise, do it the dummy + top-level (recommended) way
-                            else
-                            {
-                                File.WriteAllText(this.BasePath(workingDir, script)+ext, this.ScriptTexts[scriptType][script][ext]);
-                                File.Copy(this.BasePath(workingDir, script)+ext, Path.Combine(emuDir, scriptType, Path.GetFileNameWithoutExtension(script)+ext), true);
-                            }
-                        }
-                }
-            }
-        }
-    }*/
-
-    public void ExportScripts(Func<ModdedScriptInfo, bool> predicate)
-    {
+        failed = new List<string>();
         foreach (var script in ModdedScripts.Where(predicate))
-            ExportScript(script);
+            if (!TryExportScript(script, out var failedLangs))
+                failed.Add(script.path + $" ({string.Join(", ", failedLangs)})");
     }
-    public void ExportScript(string fileRelativePath) => ExportScript(ModdedScripts.First(s => s.path == fileRelativePath));
-    public void ExportScript(ModdedScriptInfo script)
+    //public void ExportScript(string fileRelativePath) => ExportScript(ModdedScripts.First(s => s.path == fileRelativePath));
+    public bool TryExportScript(ModdedScriptInfo script, out List<string> failed)
     {
+        failed = new();
+
         if (script.msgPath is not null && fileTexts[script.msgPath] is not null && fileTexts[script.msgPath] != string.Empty)
             File.WriteAllText(script.msgPath, fileTexts[script.msgPath]);
         if (script.flowPath is not null && fileTexts[script.flowPath] is not null && fileTexts[script.flowPath] != string.Empty)
@@ -501,42 +418,64 @@ public class ScriptManager
                     File.WriteAllText(path, fileTexts[path]);
         }
 
-        if (script.isEmulated)
+        if (script.isEmulated) // TODO: update message preview? the non-emu case does it...
         {
             string dummyFilePath = Path.Combine(config.ProjectManager.ModdedFileDir, script.path);
             if (!File.Exists(dummyFilePath))
                 File.Create(dummyFilePath).Dispose();
+
+            return true;
         }
         else
         {
-            // TODO: error reporting if compilation fails
             var log = string.Empty;
             if (script.scriptKind == "BF")
             {
                 var success = TryCompileBF(script.flowPath, out var flowScript, out log);
                 if (success)
                     flowScript.ToFile(Path.Combine(config.ProjectManager.ModdedFileDir, script.path));
+                else
+                    failed.Add(GetLangCodeFromLang(config.Language));
+                ScriptErrors[script.path][GetLangCodeFromLang(config.Language)] = log;
                 if (script.localizedFlowPaths is not null)
                     foreach (var (langcode, flow) in script.localizedFlowPaths)
                     {
                         success = TryCompileBF(flow, GetEncodingFromLangCode(langcode), out flowScript, out log);
                         if (success)
                             flowScript.ToFile(Path.ChangeExtension(flow, ".bf"));
+                        else
+                            failed.Add(langcode);
+                        ScriptErrors[script.path][langcode] = log;
                     }
+                return success;
             }
             else
             {
-                var success = TryCompileBMD(script.msgPath, out var msgScript, out log);
-                if (!success)
-                    return;
-                msgScript.ToFile(Path.Combine(config.ProjectManager.ModdedFileDir, script.path));
+                var success = TryCompileBMD(script, out var msgScript, out log);
+                if (success)
+                    msgScript.ToFile(Path.Combine(config.ProjectManager.ModdedFileDir, script.path));
+                else
+                    failed.Add(GetLangCodeFromLang(config.Language));
                 if (script.localizedMsgPaths is not null)
                     foreach (var (langcode, msg) in script.localizedMsgPaths)
                     {
                         success = TryCompileBMD(msg, GetEncodingFromLangCode(langcode), out msgScript, out log);
                         if (success)
-                            msgScript.ToFile(Path.ChangeExtension(msg, ".bmd"));
+                        {
+                            string exportPath = Path.ChangeExtension(msg, ".bmd");
+                            msgScript.ToFile(exportPath);
+
+                            var key = Path.Combine(langcode, script.pathInCpk);
+                            var workingPath = Path.Combine(config.WorkingPath, key);
+
+                            File.Copy(exportPath, workingPath, true);
+                            BMDFiles[key].Read(workingPath);
+                        }
+                        else
+                            failed.Add(langcode);
+                        ScriptErrors[script.path][langcode] = log;
                     }
+                return success;
             }
         }
     }
@@ -554,7 +493,7 @@ public class ScriptManager
         else
             success = TryCompileBF(bf.flowPath, GetEncodingFromLang(language), out script, out log);
 
-        if (!success) bf.log = log;
+        ScriptErrors[bf.path][GetLangCodeFromLang(language)] = log;
         return success;
     }
 
@@ -598,7 +537,18 @@ public class ScriptManager
         else
             success = TryCompileBMD(bmd.msgPath, GetEncodingFromLang(language), out script, out log);
 
-        if (!success) bmd.log = log;
+        ScriptErrors[bmd.path][GetLangCodeFromLang(language)] = log;
+        if (success)
+        {
+            var key = Path.Combine(GetLangCodeFromLang(language), bmd.pathInCpk);
+            string workingPath = Path.Combine(config.WorkingPath, key);
+            script.ToFile(workingPath);
+
+            if (!BMDFiles.ContainsKey(key))
+                BMDFiles[key] = new();
+            BMDFiles[key].Read(workingPath);
+        }
+
         return success;
     }
 
@@ -628,10 +578,10 @@ public class ScriptManager
         return success;
     }
 
-    public bool TryCompileEmulatedBF(string baseBf, string flowImport, List<string> importPaths, out FlowScript script, out string log) => TryCompileEmulatedBF(baseBf, flowImport, importPaths, this.Encoding, out script, out log);
+    //public bool TryCompileEmulatedBF(string baseBf, string flowImport, List<string> importPaths, out FlowScript script, out string log) => TryCompileEmulatedBF(baseBf, flowImport, importPaths, this.Encoding, out script, out log);
     public bool TryCompileEmulatedBF(string baseBf, string flowImport, List<string> importPaths, AtlusEncoding encoding, out FlowScript script, out string log)
     {
-        // importPaths should contain .msg import *if* flow import does not exist, otherwise importPaths should be empty/dependency mod imports only and flowImport should just import the .msg file directly
+        // importPaths should contain .msg import *if* .flow import does not exist, otherwise importPaths should be empty/other mod imports only and flowImport should just import the .msg file directly
         // ...is how it works in actual femu, but bc we can't actually emu localized files here we instead stick localized .msg in importPaths and pray
         var listener = new AppLogListener();
         bool success;
@@ -661,7 +611,7 @@ public class ScriptManager
         return success;
     }
 
-    public bool TryCompileEmulatedBMD(string baseBmd, List<string> importPaths, out MessageScript script, out string log) => TryCompileEmulatedBMD(baseBmd, importPaths, this.Encoding, out script, out log);
+    //public bool TryCompileEmulatedBMD(string baseBmd, List<string> importPaths, out MessageScript script, out string log) => TryCompileEmulatedBMD(baseBmd, importPaths, this.Encoding, out script, out log);
     public bool TryCompileEmulatedBMD(string baseBmd, List<string> importPaths, AtlusEncoding encoding, out MessageScript script, out string log)
     {
         var listener = new AppLogListener();
@@ -687,54 +637,6 @@ public class ScriptManager
         log = listener.Text;
         return success;
     }
-
-    /*public void FindEmulatorImports(string modDir, string emuDir, List<string> dummyFiles, string fileKind)
-    {
-        var importPathBase = Path.Combine(emuDir, fileKind);
-        var importPathLen = importPathBase.Length;
-        foreach (var dummyFile in dummyFiles)
-        {
-            var key = Path.GetRelativePath(modDir, dummyFile);
-            ScriptList[fileKind].Add(key);
-            EmulatedScriptPaths[fileKind][key] = new Dictionary<string, string>();
-            var parts = key.Split(Path.DirectorySeparatorChar);
-            parts[parts.Length - 1] = Path.ChangeExtension(parts[parts.Length - 1], ".msg");
-
-            var defaultMsgImportPath = Path.Combine(importPathBase, parts[parts.Length - 1]);
-            var msgImportPath = defaultMsgImportPath;
-            string flowImportPath = Path.ChangeExtension(msgImportPath, ".flow");
-            var defaultFlowImportPath = flowImportPath;
-            for (int i = parts.Length - 2; i >= 0; i--)
-            {
-                if (File.Exists(msgImportPath))
-                {
-                    EmulatedScriptPaths[fileKind][key][".msg"] = msgImportPath;
-                    ScriptTexts[fileKind][key][".msg"] = File.ReadAllText(msgImportPath);
-                }
-                if (fileKind == "BF" && File.Exists(flowImportPath))
-                {
-                    EmulatedScriptPaths[fileKind][key][".flow"] = flowImportPath;
-                    ScriptTexts[fileKind][key][".flow"] = File.ReadAllText(flowImportPath);
-                }
-
-                if (EmulatedScriptPaths[fileKind][key].Count > 0) break; // this line assumes flow and msg paths will always be in the same folder, which is *usually* true but keep in mind if trying to add logic for manually imported files
-                msgImportPath.Insert(importPathLen, parts[i]);
-                flowImportPath.Insert(importPathLen, parts[i]);
-            }
-
-            // if couldn't find imports, then use default path and treat imports as empty
-            if (!EmulatedScriptPaths[fileKind][key].ContainsKey(".msg"))
-            {
-                EmulatedScriptPaths[fileKind][key][".msg"] = defaultMsgImportPath;
-                ScriptTexts[fileKind][key][".msg"] = String.Empty;
-            }
-            if (fileKind == "BF" && !EmulatedScriptPaths[fileKind][key].ContainsKey(".flow"))
-            {
-                EmulatedScriptPaths[fileKind][key][".flow"] = defaultFlowImportPath;
-                ScriptTexts[fileKind][key][".flow"] = String.Empty;
-            }
-        }
-    }*/
 
     public Dictionary<string, string> FindLocalizedFiles(string englishFileRoute)
     {
@@ -831,7 +733,7 @@ public class ScriptManager
 
                 VanillaScripts.Add(scriptInfo);
             }
-            scriptInfo.log = error;
+            // TODO: throw an exception if decomp fails...? since it should only happen with either bad dump or bad script tools
         }
 
         foreach (var vanillaBmd in config.EventManager.VanillaBmdPaths)
@@ -849,7 +751,7 @@ public class ScriptManager
 
                 VanillaScripts.Add(scriptInfo);
             }
-            scriptInfo.log = error;
+            // TODO: throw an exception if decomp fails...? since it should only happen with either bad dump or bad script tools
         }
 
         if (!config.ReadOnly)
@@ -877,7 +779,9 @@ public class ScriptManager
                     scriptInfo.localizedMsgPaths = locFrameworkEnabled ? FindLocalizedFiles(RemovePrefix(moddedFileDir, scriptInfo.msgPath)) : null;
                     ModdedScripts.Add(scriptInfo);
                 }
-                scriptInfo.log = error;
+
+                ScriptErrors[scriptInfo.path] = new();
+                ScriptErrors[scriptInfo.path][GetLangCodeFromLang(config.Language)] = error;
             }
 
             foreach (var moddedBmd in config.EventManager.BmdPaths)
@@ -897,13 +801,15 @@ public class ScriptManager
                     scriptInfo.localizedMsgPaths = locFrameworkEnabled ? FindLocalizedFiles(RemovePrefix(moddedFileDir, scriptInfo.msgPath)) : null;
                     ModdedScripts.Add(scriptInfo);
                 }
-                scriptInfo.log = error;
+
+                ScriptErrors[scriptInfo.path] = new();
+                ScriptErrors[scriptInfo.path][GetLangCodeFromLang(config.Language)] = error;
             }
 
             // find all .flow and .msg files associated with an emulated script
             // FEmulator routing allows for partial matching, so the relative path from FEmulator/BF (or BMD) to the file can be any substring of the cpk path where the filename matches (ignoring extensions)
             // in practice most people just put script files at the top level for that emulator (eg. FEmulator/BMD/filename.msg), we'll use this as default export path if no matching file exists
-            // but mods with a lot of script files may use subfolders matching the route for organization
+            // but mods with a lot of script files may use subfolders matching the route for organization which we want EVTUI to detect
             bool bfEmuEnabled = config.ProjectManager._hasFramework("BFEmulator");
             string emulatedBfDir = config.ProjectManager.EmulatedBfDir;
             if (bfEmuEnabled)
@@ -921,7 +827,6 @@ public class ScriptManager
 
                     fileTexts[scriptInfo.flowPath] = File.Exists(scriptInfo.flowPath) ? File.ReadAllText(scriptInfo.flowPath) : null;
                     fileTexts[scriptInfo.msgPath] = File.Exists(scriptInfo.msgPath) ? File.ReadAllText(scriptInfo.msgPath) : null;
-                    scriptInfo.log = null;
 
                     scriptInfo.localizedFlowPaths = locFrameworkEnabled ? FindLocalizedFiles(RemovePrefix(emulatedBfDir, scriptInfo.flowPath)) : null;
                     scriptInfo.localizedMsgPaths = locFrameworkEnabled ? FindLocalizedFiles(RemovePrefix(emulatedBfDir, scriptInfo.msgPath)) : null;
@@ -943,7 +848,6 @@ public class ScriptManager
                     scriptInfo.flowPath = null;
                     scriptInfo.msgPath = Directory.EnumerateFiles(emulatedBmdDir, "*.*", SearchOption.AllDirectories).FirstOrDefault(x => routeWithoutCpk.EndsWith(RemovePrefix(emulatedBmdDir, x), StringComparison.InvariantCultureIgnoreCase), Path.Combine(emulatedBmdDir, fileName));
                     fileTexts[scriptInfo.msgPath] = File.Exists(scriptInfo.msgPath) ? File.ReadAllText(scriptInfo.msgPath) : null;
-                    scriptInfo.log = null;
 
                     scriptInfo.localizedFlowPaths = null;
                     scriptInfo.localizedMsgPaths = locFrameworkEnabled ? FindLocalizedFiles(RemovePrefix(emulatedBmdDir, scriptInfo.msgPath)) : null;
@@ -952,7 +856,8 @@ public class ScriptManager
             }
 
             // create info for files that don't already exist
-            var evt = config.EventManager.SerialEvent;
+            // TODO: this should probably require a user prompt...
+            /*var evt = config.EventManager.SerialEvent;
 
             if (!ModdedScripts.Exists(s => s.scriptKind == "BF"))
             {
@@ -961,7 +866,6 @@ public class ScriptManager
                 bf.msgPath = Path.ChangeExtension(bf.flowPath, ".msg");
                 fileTexts[bf.flowPath] = File.Exists(bf.flowPath) ? File.ReadAllText(bf.flowPath) : string.Empty;
                 fileTexts[bf.msgPath] = File.Exists(bf.msgPath) ? File.ReadAllText(bf.msgPath) : string.Empty;
-                bf.log = null;
                 bf.localizedFlowPaths = locFrameworkEnabled ? new() : null;
                 bf.localizedMsgPaths = locFrameworkEnabled ? new() : null;
                 ModdedScripts.Add(bf);
@@ -973,21 +877,24 @@ public class ScriptManager
                 bmd.flowPath = null;
                 bmd.msgPath = bmdEmuEnabled ? Path.Combine(emulatedBmdDir, Path.GetFileNameWithoutExtension(bmd.pathInCpk)) + ".msg" : Path.ChangeExtension(Path.Combine(moddedFileDir, bmd.path), ".msg");
                 fileTexts[bmd.msgPath] = File.Exists(bmd.msgPath) ? File.ReadAllText(bmd.msgPath) : string.Empty;
-                bmd.log = null;
                 bmd.localizedFlowPaths = null;
                 bmd.localizedMsgPaths = locFrameworkEnabled ? new() : null;
                 ModdedScripts.Add(bmd);
-            }
+            }*/
         }
 
-        // TODO: populate this.BMDFiles so that message preview in timeline tab works
+        foreach (var script in ModdedScripts)
+        {
+            if (!ScriptErrors.ContainsKey(script.path))
+                ScriptErrors[script.path] = new();
+
+            foreach (var langCode in LangCodeDict.Values)
+                if (!ScriptErrors[script.path].ContainsKey(langCode))
+                    ScriptErrors[script.path][langCode] = string.Empty;
+        }
+
         InitializeWorkingDir();
         ChangeActiveScripts();
-
-        //ActiveBF = ModdedScripts.Exists(s => s.scriptKind == "BF") ? ModdedScripts.First(s => s.scriptKind == "BF").path : null;
-        //ActiveBMD = ModdedScripts.Exists(s => s.scriptKind == "BMD") ? ModdedScripts.First(s => s.scriptKind == "BMD").path : null;
-        //ActiveVanillaBF = VanillaScripts.Exists(s => s.scriptKind == "BF") ? VanillaScripts.First(s => s.scriptKind == "BF").path : null;
-        //ActiveVanillaBMD = VanillaScripts.Exists(s => s.scriptKind == "BMD") ? VanillaScripts.First(s => s.scriptKind == "BMD").path : null;
     }
 
     private VanillaScriptInfo FindMatchingVanillaScript(ModdedScriptInfo moddedScript, string language)
@@ -1038,11 +945,11 @@ public class ScriptManager
         {
             var bf = ModdedScripts.FirstOrDefault(s => s.scriptKind == "BF", null);
             if (bf is not null)
-                ActiveBF = Path.Combine(config.Language, bf.pathInCpk);
+                ActiveBF = Path.Combine(GetLangCodeFromLang(config.Language), bf.pathInCpk);
 
             var bmd = ModdedScripts.FirstOrDefault(s => s.scriptKind == "BMD", null);
             if (bmd is not null)
-                ActiveBMD = Path.Combine(config.Language, bmd.pathInCpk);
+                ActiveBMD = Path.Combine(GetLangCodeFromLang(config.Language), bmd.pathInCpk);
         }
     }
 
@@ -1073,7 +980,10 @@ public class ScriptManager
         {
             VanillaScriptInfo vanillaScript = FindMatchingVanillaScript(script, language);
             if (vanillaScript == null)
+            {
+                BMDFiles[GetLangCodeFromLang(language)] = null;
                 return;
+            }
 
             if (vanillaScript.scriptKind == "BMD")
             {
@@ -1084,7 +994,7 @@ public class ScriptManager
 
                 var bmd = new BMD();
                 bmd.Read(scriptPath);
-                this.BMDFiles[Path.Combine(language, script.pathInCpk)] = bmd;
+                this.BMDFiles[Path.Combine(GetLangCodeFromLang(language), script.pathInCpk)] = bmd;
             }
             // TODO bfs lol
         }
@@ -1097,63 +1007,54 @@ public class ScriptManager
                 {
                     foreach (var lang in LangCodeDict.Keys)
                     {
-                        if (TryCompileBMD(script, lang, out var msgScript, out var log))
-                        {
-                            string key = Path.Combine(lang, script.pathInCpk);
-                            var scriptPath = Path.Combine(workingDir, key);
-                            msgScript.ToFile(scriptPath);
-
-                            var bmd = new BMD();
-                            bmd.Read(scriptPath);
-                            BMDFiles[key] = bmd;
-                        }
-                        else
+                        if (!TryCompileBMD(script, lang, out var msgScript, out _))
                             UseVanillaScriptForPreview(script, lang);
                     }
                 }
                 else
                 {
-                    var enKey = Path.Combine("English", script.pathInCpk);
+                    var enKey = Path.Combine("en", script.pathInCpk);
                     var enScriptPath = Path.Combine(workingDir, enKey);
                     string pathInMod = Path.Combine(config.ProjectManager.ModdedFileDir, script.path);
-                    if (!File.Exists(pathInMod))
+                    if (File.Exists(pathInMod))
                     {
-                        if (!File.Exists(script.msgPath) || !TryCompileBMD(script, out var msgScript, out var log))
+                        if (!Directory.Exists(Path.GetDirectoryName(enScriptPath)))
+                            Directory.CreateDirectory(Path.GetDirectoryName(enScriptPath));
+                        File.Copy(pathInMod, enScriptPath, true);
+
+                        BMDFiles[enKey] = new();
+                        BMDFiles[enKey].Read(enScriptPath);
+                    }
+                    else
+                    {
+                        if (!File.Exists(script.msgPath) || !TryCompileBMD(script, config.Language, out var msgScript, out _)) // loc framework won't work without a non-localized file so treat all languages as vanilla
                         {
                             foreach (var lang in LangCodeDict.Keys)
                                 UseVanillaScriptForPreview(script, lang);
                             continue;
                         }
-                        msgScript.ToFile(enScriptPath);
                     }
-                    if (!Directory.Exists(Path.GetDirectoryName(enScriptPath)))
-                        Directory.CreateDirectory(Path.GetDirectoryName(enScriptPath));
-                    File.Copy(pathInMod, enScriptPath, true);
-
-                    var bmd = new BMD();
-                    bmd.Read(enScriptPath);
-                    BMDFiles[enKey] = bmd;
 
                     foreach (var (lang, langCode) in LangCodeDict)
                     {
                         if (lang == "English")
                             continue;
 
-                        var key = Path.Combine(lang, script.pathInCpk);
+                        var key = Path.Combine(langCode, script.pathInCpk);
                         var localizedScriptPath = Path.Combine(workingDir, key);
                         if (!Directory.Exists(Path.GetDirectoryName(localizedScriptPath)))
                             Directory.CreateDirectory(Path.GetDirectoryName(localizedScriptPath));
 
                         if (script.localizedMsgPaths is null || !script.localizedMsgPaths.ContainsKey(langCode))
-                            File.Copy(enScriptPath, localizedScriptPath, true);
-                        else if (File.Exists(Path.ChangeExtension(script.localizedFlowPaths[langCode], ".bmd")))
+                            BMDFiles[key] = BMDFiles[enKey];
+                        else if (File.Exists(Path.ChangeExtension(script.localizedMsgPaths[langCode], ".bmd")))
+                        {
                             File.Copy(Path.ChangeExtension(script.localizedMsgPaths[langCode], ".bmd"), localizedScriptPath, true);
-                        else if (TryCompileBMD(script, lang, out var msgScript, out var log))
-                            msgScript.ToFile(localizedScriptPath);
-
-                        var localizedBmd = new BMD();
-                        localizedBmd.Read(localizedScriptPath);
-                        BMDFiles[key] = localizedBmd;
+                            BMDFiles[key] = new();
+                            BMDFiles[key].Read(localizedScriptPath);
+                        }
+                        else if (!TryCompileBMD(script, lang, out var msgScript, out _))    // this file should be localized, but no working script exists...
+                            BMDFiles[key] = BMDFiles[enKey];                                // do this separately from the localizedMsgPaths check because I/O
                     }
                 }
 
@@ -1210,275 +1111,6 @@ public class ScriptManager
         log = listener.Text;
         return success;
     }
-
-    /*public void PopulateWorkingDir()
-    {
-        var workingDir = config.WorkingPath;
-        var baseDir = config.VanillaExtractionPath;
-        var modDir = config.ProjectManager.ModdedFileDir;
-        var emuDir = config.ProjectManager.EmulatedFileDir;
-
-        var bfPaths = config.EventManager.BfPaths;
-        var bmdPaths = config.EventManager.BmdPaths;
-        var dummyFiles = new List<string>(config.EventManager.EmulatedBfPaths);
-        dummyFiles.AddRange(config.EventManager.EmulatedBmdPaths);
-
-        FindEmulatedFiles(modDir, emuDir, dummyFiles);
-
-        // TODO: this is dumb, fix this with the file management PR
-        foreach (List<string> pathList in new[] { bmdPaths, bfPaths })
-            if (!(pathList is null))
-                //for (int i = 0; i < pathList.Count; i++)
-                // oh god this is bad and stupid. bandaid solution to go with the sort + reverse thing for the files
-                // otherwise, if the vanilla and mod cpk names are the same and emulator is off, it gets ugly.
-                // TODO TODO TODO oh god TODO
-                for (int i = pathList.Count-1; i >= 0; i--)
-                {
-                    string workingPath = null;
-                    if (pathList[i].StartsWith(baseDir))
-                        workingPath = Path.Combine(workingDir, this.RemovePrefix(baseDir, pathList[i]));
-                    else if (pathList[i].StartsWith(modDir))
-                        workingPath = Path.Combine(workingDir, this.RemovePrefix(modDir, pathList[i]));
-                    // copy BFs/BMDs to working dir
-                    if (!Directory.Exists(Path.GetDirectoryName(workingPath)))
-                        Directory.CreateDirectory(Path.GetDirectoryName(workingPath));
-                    File.Copy(pathList[i], workingPath, true);
-                    // make sure those are the ref paths
-                    pathList[i] = workingPath;
-                }
-
-        this.UpdateScripts(bmdPaths, bfPaths, workingDir, config.ProjectManager.ActiveGame.Type);
-
-        // THEN decompile them
-        this.DecompileAll(workingDir);
-
-        // and THEN copy modded decomp files over the fresh decomp'd ones (if emu is active)
-        this.MaybeOverwriteScripts(workingDir, modDir, emuDir);
-        this.RefreshScriptTexts(workingDir);
-
-        // and then recompile with those to make sure we have the right binaries
-        foreach (string fileBase in this.ScriptTexts["BMD"].Keys)
-            this.CompileMessage(workingDir, fileBase);
-    }*/
-
-    /*public void UpdateScripts(List<string> bmdPaths, List<string> bfPaths, string modPath, string gameType)
-    {
-        // TODO: I gooootta handle game/locale/encoding more elegantly, lmao
-        if (gameType.StartsWith("P5R"))
-        {
-            this.GameName = "p5r";
-            this.EnCharLookup = CharLookup("P5R_EFIGS");
-            this.JpCharLookup = CharLookup("P5R_Japanese");
-        }
-        else
-        {
-            this.GameName = "p5";
-            this.EnCharLookup = CharLookup("P5");
-            this.JpCharLookup = this.EnCharLookup;
-        }
-        this.Encoding = AtlusEncoding.GetByName(this.GameName); // TODO: AtlusEncoding.GetByName is replaced by AtlusEncoding.Create in upstream, which we'll probably have to move to if we want multilanguage support but idk how to update the batch script lol -ocean
-
-        this.BMDFiles.Clear();
-        //this.BFFiles.Clear();
-
-        foreach (string scriptType in this.ScriptList.Keys)
-        {
-            this.ScriptList[scriptType].Clear();
-            this.ScriptTexts[scriptType].Clear();
-            this.ScriptErrors[scriptType].Clear();
-            List<string> paths = (scriptType == "BMD") ? bmdPaths : bfPaths;
-            if (!(paths is null))
-                foreach (string scriptPath in paths)
-                {
-                    string key = this.RemovePrefix(modPath, scriptPath);
-                    this.ScriptList[scriptType].Add(key);
-                    if (scriptType == "BMD")
-                    {
-                        var messageFile = new BMD();
-                        messageFile.Read(scriptPath);
-                        this.BMDFiles[key] = messageFile;
-                    }
-                    // TODO: do same for BF once i make the class for it....
-                }
-        }
-
-        if (this.ScriptList["BMD"].Count > 0)
-            this.ActiveBMD = this.ScriptList["BMD"][0];
-        else
-            this.ActiveBMD = null;
-
-        if (this.ScriptList["BF"].Count > 0)
-            this.ActiveBF = this.ScriptList["BF"][0];
-        else
-            this.ActiveBF = null;
-    }*/
-
-    /*public void DecompileAll(string targetDir)
-    {
-        foreach (string script in this.ScriptList["BMD"].Where(s => !EmulatedScriptPaths["BMD"].ContainsKey(s)))
-            this.DecompileMessage(targetDir, script);
-        foreach (string script in this.ScriptList["BF"].Where(s => !EmulatedScriptPaths["BF"].ContainsKey(s)))
-            this.DecompileScript(targetDir, script);
-    }*/
-
-    /*public void MaybeOverwriteScripts(string workingDir, string modDir, string emuDir)
-    {
-        if (modDir is null || emuDir is null)
-            return;
-        foreach (string scriptType in this.ScriptTexts.Keys)
-            foreach (string fileBase in this.ScriptTexts[scriptType].Keys)
-            {
-                //Regex patt = new Regex($"{fileBase}$", RegexOptions.IgnoreCase),
-                foreach (string fileExt in this.ScriptTexts[scriptType][fileBase].Keys)
-                    // TODO: this breaks with custom CPK folder names... and also with case-sensitive names... blagh
-                    //foreach (string path in Directory.GetFiles(modDir, "*.*", SearchOption.AllDirectories))
-                    // recommended format is dummy file in essentials + top-level femu
-                    if (File.Exists(Path.Combine(modDir, fileBase)) && File.Exists(Path.Combine(emuDir, scriptType, Path.GetFileNameWithoutExtension(fileBase))+fileExt))
-                        File.Copy(Path.Combine(emuDir, scriptType, Path.GetFileNameWithoutExtension(fileBase))+fileExt, this.BasePath(workingDir, fileBase)+fileExt, true);
-                    // ...but full-path femu is also fine
-                    else if (File.Exists(this.BasePath(Path.Combine(emuDir, scriptType), fileBase)+fileExt))
-                        File.Copy(this.BasePath(Path.Combine(emuDir, scriptType), fileBase)+fileExt, this.BasePath(workingDir, fileBase)+fileExt, true);
-            }
-    }*/
-
-    /*public void RefreshScriptTexts(string targetDir)
-    {
-        foreach (string scriptType in this.ScriptTexts.Keys)
-            foreach (string fileBase in this.ScriptTexts[scriptType].Keys)
-                foreach (string fileExt in this.ScriptTexts[scriptType][fileBase].Keys)
-                    this.ScriptTexts[scriptType][fileBase][fileExt] = File.ReadAllText(this.BasePath(targetDir, fileBase)+fileExt);
-    }*/
-
-    /*public void DecompileMessage(string targetDir, string fileBase)
-    {
-        AppLogListener listener = new AppLogListener();
-        this.ScriptTexts["BMD"][fileBase] = new Dictionary<string, string>();
-        this.ScriptErrors["BMD"][fileBase] = "";
-        try
-        {
-            string outPath = this.BasePath(targetDir, fileBase);
-            string baseExt = Path.GetExtension(fileBase);
-            MessageScriptBinary binary = MessageScriptBinary.FromStream(this.BMDFiles[fileBase].ToStream());
-            MessageScript msgScript = MessageScript.FromBinary(binary, FormatVersion.Detect, this.Encoding);
-            using (var decompiler = new MessageScriptDecompiler(new FileTextWriter(outPath+".msg")))
-            {
-                decompiler.Library = LibraryLookup.GetLibrary(this.GameName);
-                decompiler.Decompile(msgScript);
-            }
-            string[] fileNames = Directory.GetFiles(Path.GetDirectoryName(outPath));
-            Array.Sort(fileNames);
-            foreach (string fileName in fileNames)
-                if (fileName != outPath+baseExt && fileName.StartsWith(outPath))
-                    this.ScriptTexts["BMD"][fileBase][fileName.Substring(outPath.Length, fileName.Length-outPath.Length)] = File.ReadAllText(fileName);
-
-            if (this.ScriptTexts["BMD"][fileBase].Count == 0)
-                this.ScriptErrors["BMD"][fileBase] = "Decompilation seemed okay, but no files found....";
-        }
-        catch (Exception ex)
-        {
-            Trace.TraceError(ex.ToString());
-            this.ScriptErrors["BMD"][fileBase] = ex.ToString();
-        }
-    }*/
-
-    /*public string CompileMessage(string targetDir, string fileBase)
-    {
-        string outPath = this.BasePath(targetDir, fileBase);
-        foreach (string ext in this.ScriptTexts["BMD"][fileBase].Keys)
-            File.WriteAllText(outPath+ext, this.ScriptTexts["BMD"][fileBase][ext]);
-                
-        MessageScriptCompiler compiler = new MessageScriptCompiler(FormatVersion.Version1BigEndian, this.Encoding);
-        //MessageScriptCompiler compiler = new MessageScriptCompiler(FormatVersion.Version1, this.Encoding);
-        compiler.Library = LibraryLookup.GetLibrary(this.GameName);
-        AppLogListener listener = new AppLogListener();
-        compiler.AddListener(listener);
-        try
-        {
-            MessageScript msgScript = new MessageScript(FormatVersion.Version1BigEndian, this.Encoding);
-            //MessageScript msgScript = new MessageScript(FormatVersion.Version1, this.Encoding);
-            bool success = compiler.TryCompile(this.ScriptTexts["BMD"][fileBase][".msg"], out msgScript);
-            // TODO... get emulation actually working here!
-            //bool success = compiler.TryCompileWithImports(this.ScriptTexts["BMD"][fileBase][".msg"], List<string> imports, out msgScript);
-            this.BMDFiles[fileBase] = new BMD();
-            byte[] newBytes = ((MemoryStream)msgScript.ToBinary().ToStream()).ToArray();
-            this.BMDFiles[fileBase].FromBytes(newBytes);
-            File.WriteAllBytes(outPath+".BMD", newBytes);
-        }
-        catch (Exception ex)
-        {
-            Trace.TraceError(ex.ToString());
-            listener.Text += ex.ToString();
-        }
-        return listener.Text;
-    }*/
-
-    /*public void DecompileScript(string targetDir, string fileBase)
-    {
-        AppLogListener listener = new AppLogListener();
-        this.ScriptTexts["BF"][fileBase] = new Dictionary<string, string>();
-        this.ScriptErrors["BF"][fileBase] = "";
-        try
-        {
-            string outPath = this.BasePath(targetDir, fileBase);
-            string baseExt = Path.GetExtension(fileBase);
-            FlowScriptBinary binary = FlowScriptBinary.FromStream(new FileStream(outPath+baseExt, FileMode.Open));
-            FlowScript flowScript = FlowScript.FromBinary(binary, this.Encoding);
-            var decompiler = new FlowScriptDecompiler();
-            decompiler.Library = LibraryLookup.GetLibrary(this.GameName);
-            decompiler.AddListener(listener);
-            bool success = decompiler.TryDecompile(flowScript, outPath+".flow");
-            if (success)
-            {
-                string[] fileNames = Directory.GetFiles(Path.GetDirectoryName(outPath));
-                Array.Sort(fileNames);
-                foreach (string fileName in fileNames)
-                    if (fileName != outPath+baseExt && fileName.StartsWith(outPath))
-                        this.ScriptTexts["BF"][fileBase][fileName.Substring(outPath.Length, fileName.Length-outPath.Length)] = File.ReadAllText(fileName);
-            }
-        }
-        catch (Exception ex)
-        {
-            Trace.TraceError(ex.ToString());
-            listener.Text += ex.ToString();
-        }
-        this.ScriptErrors["BF"][fileBase] = listener.Text;
-    }*/
-
-    /*public string CompileScript(string targetDir, string fileBase)
-    {
-        AppLogListener listener = new AppLogListener();
-        string outPath = this.BasePath(targetDir, fileBase);
-        foreach (string ext in this.ScriptTexts["BF"][fileBase].Keys)
-            File.WriteAllText(outPath+ext, this.ScriptTexts["BF"][fileBase][ext]);
-
-        string oldWorkingDir = Directory.GetCurrentDirectory();
-        Directory.SetCurrentDirectory(Path.GetDirectoryName(outPath));
-
-        try
-        {
-            // TODO: should detect the version from the vanilla extracted file...?
-            // orrrr output version just depends on game type?
-            FlowScriptCompiler compiler = new FlowScriptCompiler(FlowFormatVersion.Version3BigEndian);
-            compiler.Encoding = this.Encoding;
-            compiler.Library = LibraryLookup.GetLibrary(this.GameName);
-            // no idea why this tracing bool alone is set to true by default, but it is ANNOYING!!!
-            compiler.EnableProcedureTracing = false;
-            compiler.AddListener(listener);
-            FlowScript flowScript = new FlowScript(FlowFormatVersion.Version3BigEndian);
-            bool success = compiler.TryCompile(this.ScriptTexts["BF"][fileBase][".flow"], out flowScript);
-            byte[] newBytes = ((MemoryStream)flowScript.ToBinary().ToStream()).ToArray();
-            //this.BFFiles[fileBase] = new BF();
-            //this.BFFiles[fileBase].FromBytes(newBytes);
-            File.WriteAllBytes(outPath+".BF", newBytes);
-        }
-        catch (Exception ex)
-        {
-            Trace.TraceError(ex.ToString());
-            listener.Text += ex.ToString();
-        }
-        Directory.SetCurrentDirectory(oldWorkingDir);
-        return listener.Text;
-    }*/
 
     public int GetTurnIndex(Int16 majorId, byte minorId, byte _subId)
     {

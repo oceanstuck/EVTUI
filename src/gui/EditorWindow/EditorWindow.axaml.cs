@@ -24,8 +24,11 @@ public partial class EditorWindow : Window
     {
         try
         {
-            await ((EditorWindowViewModel)DataContext).SaveMod(((MenuItem)sender).Name);
-            await Utils.RaiseModal(this, "Saved successfully!");
+            var failed = await ((EditorWindowViewModel)DataContext).SaveMod(((MenuItem)sender).Name);
+            if (failed.Count == 0)
+                await Utils.RaiseModal(this, "Saved successfully!");
+            else
+                await Utils.RaiseModal(this, "Trouble exporting the following:\n\t" + string.Join("\n\t", failed));
         }
         catch (IOException ex)
         {

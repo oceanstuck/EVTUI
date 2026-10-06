@@ -160,7 +160,6 @@ public class DataManager
         var bmd = ScriptManager.ModdedScripts.First(s => s.path == fileBase);
         ScriptManager.TryCompileBMD(bmd, out _, out var log);
         return log.ToString();
-        //return this.ScriptManager.CompileMessage(this.WorkingPath, fileBase);
     }
 
     public string CompileScript(string fileBase)
@@ -168,7 +167,6 @@ public class DataManager
         var bf = ScriptManager.ModdedScripts.First(s => s.path == fileBase);
         ScriptManager.TryCompileBF(bf, out _, out var log);
         return log.ToString();
-        //return this.ScriptManager.CompileScript(this.WorkingPath, fileBase);
     }
 
     public List<string> GetCPKsFromPath(string? directoryPath)
@@ -268,23 +266,26 @@ public class DataManager
         return this.ExtractExactFiles(prefix);
     }
 
-    public async Task SaveBF()
+    public async Task<List<string>> SaveBF()
     {
-        ScriptManager.ExportScripts(s => s.scriptKind == "BF");
+        ScriptManager.ExportScripts(s => s.scriptKind == "BF", out var failed);
+        return failed;
         //this.ScriptManager.SaveScript("BF", this.WorkingPath, this.ProjectManager.ModdedFileDir, (await this.ProjectManager.HasFramework("BFEmulator")) ? this.ProjectManager.EmulatedFileDir : null);
     }
 
-    public async Task SaveBMD()
+    public async Task<List<string>> SaveBMD()
     {
-        ScriptManager.ExportScripts(s => s.scriptKind == "BMD");
+        ScriptManager.ExportScripts(s => s.scriptKind == "BMD", out var failed);
+        return failed;
         //this.ScriptManager.SaveScript("BMD", this.WorkingPath, this.ProjectManager.ModdedFileDir, (await this.ProjectManager.HasFramework("BMDEmulator")) ? this.ProjectManager.EmulatedFileDir : null);
     }
 
-    public async Task SaveModdedFiles(bool evt, bool ecs, bool bmd, bool bf)
+    public async Task<List<string>> SaveModdedFiles(bool evt, bool ecs, bool bmd, bool bf)
     {
         if (this.ReadOnly)
-            return;
+            return null;
 
+        var failed = new List<string>();
         if (evt)
         {
             if (!this.EventManager.EvtPath.StartsWith(this.ProjectManager.ModdedFileDir))
@@ -308,10 +309,12 @@ public class DataManager
         }
 
         if (bmd)
-            await this.SaveBMD();
+            failed.AddRange(await this.SaveBMD());
 
         if (bf)
-            await this.SaveBF();
+            failed.AddRange(await this.SaveBF());
+
+        return failed;
     }
 
 }
