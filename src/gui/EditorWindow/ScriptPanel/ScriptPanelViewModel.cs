@@ -167,7 +167,7 @@ public class ScriptPanelViewModel : ViewModelBase
             var scriptInfo = Config.ScriptManager.VanillaScripts.FirstOrDefault(s => s.path == SelectedVanillaScriptName, null);
             if (scriptInfo is null)
                 return string.Empty;
-            var filePath = scriptInfo.scriptKind == "BF" ? scriptInfo.flowPath : scriptInfo.msgPath;
+            var filePath = Path.GetExtension(SelectedVanillaDecompiledScriptName) == ".flow" ? scriptInfo.flowPath : scriptInfo.msgPath;
             return Config.ScriptManager.fileTexts[filePath];
         }
         set
@@ -177,7 +177,7 @@ public class ScriptPanelViewModel : ViewModelBase
             var scriptInfo = Config.ScriptManager.VanillaScripts.FirstOrDefault(s => s.path == SelectedVanillaScriptName, null);
             if (scriptInfo is null)
                 return;
-            var filePath = scriptInfo.scriptKind == "BF" ? scriptInfo.flowPath : scriptInfo.msgPath;
+            var filePath = Path.GetExtension(SelectedVanillaDecompiledScriptName) == ".flow" ? scriptInfo.flowPath : scriptInfo.msgPath;
             Config.ScriptManager.fileTexts[filePath] = value;
         }
     }

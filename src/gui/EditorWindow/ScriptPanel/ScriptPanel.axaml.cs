@@ -174,7 +174,6 @@ public partial class ScriptPanel : ReactiveUserControl<ScriptPanelViewModel>
         if (String.IsNullOrEmpty(ViewModel!.SelectedVanillaDecompiledScriptName))
             return;
 
-        // TODO actually display vanilla stuff instead of just another copy of edits
         if (ViewModel!.SelectedVanillaDecompiledScriptName.EndsWith(".msg"))
         {
             _vanillaMsgTextEditor.IsEnabled = ViewModel!.HasVanillaFiles;
