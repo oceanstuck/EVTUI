@@ -98,9 +98,9 @@
        TextWrapping="Wrap"
        Text="{Binding CompilationLogs}"
        CaretIndex="{Binding CompilationLogs.Length}"/>
-    <UniformGrid Rows="1">
-      <ContentControl Name="ReadOnlyContainer" MinWidth="600"/>
-      <ContentControl Name="EditorContainer" IsEnabled="{Binding Editable}" IsVisible="{Binding Editable}" MinWidth="600"/>
+    <UniformGrid Rows="1" ColumnSpacing="10">
+      <ContentControl Name="ReadOnlyContainer"/>
+      <ContentControl Name="EditorContainer" IsEnabled="{Binding Editable}" IsVisible="{Binding Editable}"/>
     </UniformGrid>
   </DockPanel>
 

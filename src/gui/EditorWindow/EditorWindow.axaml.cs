@@ -99,5 +99,8 @@ public partial class EditorWindow : Window
         DataManager config = ((EditorWindowViewModel)DataContext).Config;
         config.Language = ((ComboBox)source).SelectedItem.ToString();
         config.ScriptManager.ChangeActiveScripts();
+
+        if (!config.ReadOnly)
+            ((EditorWindowViewModel)DataContext).scriptPanelVM.UpdateLog();
     }
 }

@@ -371,7 +371,6 @@ public class ScriptManager
     public static string GetLangCodeFromLang(string language) => LangCodeDict[language];
     public static string CpkToLang(string cpk) => CpkLanguages[cpk];
 
-    // TODO: this wont work for chinese or korean and requires submodule update to fix
     public AtlusEncoding GetEncodingFromLang(string language) => GetEncodingFromLangCode(GetLangCodeFromLang(language));
     private AtlusEncoding GetEncodingFromLangCode(string langCode)
     {
@@ -432,16 +431,35 @@ public class ScriptManager
             {
                 var success = TryCompileBF(script.flowPath, out var flowScript, out log);
                 if (success)
-                    flowScript.ToFile(Path.Combine(config.ProjectManager.ModdedFileDir, script.path));
+                    try
+                    {
+                        flowScript.ToFile(Path.Combine(config.ProjectManager.ModdedFileDir, script.path));
+                    }
+                    catch (Exception ex)
+                    {
+                        log += ('\n' + ex.Message);
+                        failed.Add(GetLangCodeFromLang(config.Language));
+                        success = false;
+                    }
                 else
                     failed.Add(GetLangCodeFromLang(config.Language));
                 ScriptErrors[script.path][GetLangCodeFromLang(config.Language)] = log;
+
                 if (script.localizedFlowPaths is not null)
                     foreach (var (langcode, flow) in script.localizedFlowPaths)
                     {
                         success = TryCompileBF(flow, GetEncodingFromLangCode(langcode), out flowScript, out log);
                         if (success)
-                            flowScript.ToFile(Path.ChangeExtension(flow, ".bf"));
+                            try
+                            {
+                                flowScript.ToFile(Path.ChangeExtension(flow, ".bf"));
+                            }
+                            catch (Exception ex)
+                            {
+                                log += ('\n' + ex.Message);
+                                failed.Add(langcode);
+                                success = false;
+                            }
                         else
                             failed.Add(langcode);
                         ScriptErrors[script.path][langcode] = log;
@@ -452,23 +470,43 @@ public class ScriptManager
             {
                 var success = TryCompileBMD(script, out var msgScript, out log);
                 if (success)
-                    msgScript.ToFile(Path.Combine(config.ProjectManager.ModdedFileDir, script.path));
+                    try
+                    {
+                        msgScript.ToFile(Path.Combine(config.ProjectManager.ModdedFileDir, script.path));
+                    }
+                    catch (Exception ex)
+                    {
+                        log += ('\n' + ex.Message);
+                        failed.Add(GetLangCodeFromLang(config.Language));
+                        success = false;
+                    }
                 else
                     failed.Add(GetLangCodeFromLang(config.Language));
+                ScriptErrors[script.path][GetLangCodeFromLang(config.Language)] = log;
+
                 if (script.localizedMsgPaths is not null)
                     foreach (var (langcode, msg) in script.localizedMsgPaths)
                     {
                         success = TryCompileBMD(msg, GetEncodingFromLangCode(langcode), out msgScript, out log);
                         if (success)
                         {
-                            string exportPath = Path.ChangeExtension(msg, ".bmd");
-                            msgScript.ToFile(exportPath);
+                            try
+                            {
+                                string exportPath = Path.ChangeExtension(msg, ".bmd");
+                                msgScript.ToFile(exportPath);
 
-                            var key = Path.Combine(langcode, script.pathInCpk);
-                            var workingPath = Path.Combine(config.WorkingPath, key);
+                                var key = Path.Combine(langcode, script.pathInCpk);
+                                var workingPath = Path.Combine(config.WorkingPath, key);
 
-                            File.Copy(exportPath, workingPath, true);
-                            BMDFiles[key].Read(workingPath);
+                                File.Copy(exportPath, workingPath, true);
+                                BMDFiles[key].Read(workingPath);
+                            }
+                            catch (Exception ex)
+                            {
+                                log += ('\n' + ex.Message);
+                                failed.Add(langcode);
+                                success = false;
+                            }
                         }
                         else
                             failed.Add(langcode);
@@ -487,10 +525,33 @@ public class ScriptManager
         {
             var vanillaBf = FindMatchingVanillaScript(bf, language);
             var vanillaBfPath = vanillaBf is null ? null : Path.Combine(config.VanillaExtractionPath, vanillaBf.path);
-            success = TryCompileEmulatedBF(vanillaBfPath, GetLocalizedFilePath(bf, ".flow", language), new() { GetLocalizedFilePath(bf, ".msg", language) }, GetEncodingFromLang(language), out script, out log);
+
+            string flowPath = GetLocalizedFilePath(bf, ".flow", language);
+            string workingFlowPath = Path.Combine(config.WorkingPath, language, RemovePrefix(config.ProjectManager.EmulatedBfDir, bf.flowPath));
+            if (fileTexts.ContainsKey(flowPath) && fileTexts[flowPath] is not null && fileTexts[flowPath] != string.Empty)
+            {
+                if (!Directory.Exists(Path.GetDirectoryName(workingFlowPath)))
+                    Directory.CreateDirectory(Path.GetDirectoryName(workingFlowPath));
+                File.WriteAllText(workingFlowPath, fileTexts[flowPath]);
+            }
+            else
+                workingFlowPath = null;
+
+            string msgPath = GetLocalizedFilePath(bf, ".msg", language);
+            string workingMsgPath = Path.Combine(config.WorkingPath, language, RemovePrefix(config.ProjectManager.EmulatedBfDir, bf.msgPath));
+            if (fileTexts.ContainsKey(msgPath) && fileTexts[msgPath] is not null)
+            {
+                if (!Directory.Exists(Path.GetDirectoryName(workingMsgPath)))
+                    Directory.CreateDirectory(Path.GetDirectoryName(workingMsgPath));
+                File.WriteAllText(workingMsgPath, fileTexts[msgPath]);
+            }
+            else
+                workingMsgPath = null;
+
+            success = TryCompileEmulatedBF(vanillaBfPath, workingFlowPath, workingMsgPath is not null && workingFlowPath is null ? new() { workingMsgPath } : new(), GetEncodingFromLang(language), out script, out log);
         }
         else
-            success = TryCompileBF(bf.flowPath, GetEncodingFromLang(language), out script, out log);
+            success = TryCompileBF(GetLocalizedFilePath(bf, ".flow", language), GetEncodingFromLang(language), out script, out log);
 
         ScriptErrors[bf.path][GetLangCodeFromLang(language)] = log;
         return success;
@@ -534,18 +595,26 @@ public class ScriptManager
             success = TryCompileEmulatedBMD(vanillaBmdPath, new() { GetLocalizedFilePath(bmd, ".msg", language) }, GetEncodingFromLang(language), out script, out log);
         }
         else
-            success = TryCompileBMD(bmd.msgPath, GetEncodingFromLang(language), out script, out log);
+            success = TryCompileBMD(GetLocalizedFilePath(bmd, ".msg", language), GetEncodingFromLang(language), out script, out log);
 
         ScriptErrors[bmd.path][GetLangCodeFromLang(language)] = log;
         if (success)
         {
-            var key = Path.Combine(GetLangCodeFromLang(language), bmd.pathInCpk);
-            string workingPath = Path.Combine(config.WorkingPath, key);
-            script.ToFile(workingPath);
+            try // somehow i'm managing to get files that compile with bad encoding only to fail here so fuck it, extra try-catch
+            {
+                var key = Path.Combine(GetLangCodeFromLang(language), bmd.pathInCpk);
+                string workingPath = Path.Combine(config.WorkingPath, key);
+                script.ToFile(workingPath);
 
-            if (!BMDFiles.ContainsKey(key))
-                BMDFiles[key] = new();
-            BMDFiles[key].Read(workingPath);
+                if (!BMDFiles.ContainsKey(key))
+                    BMDFiles[key] = new();
+                    BMDFiles[key].Read(workingPath);
+            }
+            catch (Exception ex)
+            {
+                ScriptErrors[bmd.path][GetLangCodeFromLang(language)] += ('\n' + ex.Message);
+                success = false;
+            }
         }
 
         return success;
@@ -581,7 +650,7 @@ public class ScriptManager
     public bool TryCompileEmulatedBF(string baseBf, string flowImport, List<string> importPaths, AtlusEncoding encoding, out FlowScript script, out string log)
     {
         // importPaths should contain .msg import *if* .flow import does not exist, otherwise importPaths should be empty/other mod imports only and flowImport should just import the .msg file directly
-        // ...is how it works in actual femu, but bc we can't actually emu localized files here we instead stick localized .msg in importPaths and pray
+        // it's not a big deal if we double import for some reason (the dupe will just be ignored), but we should try to mimic actual femu behavior when possible so users can trust that what works here works in actual mods
         var listener = new AppLogListener();
         bool success;
         script = null;
