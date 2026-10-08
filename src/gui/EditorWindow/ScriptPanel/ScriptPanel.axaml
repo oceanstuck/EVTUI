@@ -63,7 +63,7 @@
          SelectionChanged="VanillaNameSelectionChanged"
          Margin="10"
          MaxDropDownHeight="300"
-         Width="NaN"/>
+         MaxWidth="450"/>
         <ComboBox Name="VanillaDecompiledExt"
          IsEnabled="{Binding HasVanillaFiles}"
          ItemsSource="{Binding VanillaScriptExtNames}"
@@ -80,7 +80,7 @@
          SelectionChanged="NameSelectionChanged"
          Margin="10"
          MaxDropDownHeight="300"
-         Width="NaN"/>
+         MaxWidth="450"/>
         <ComboBox Name="DecompiledExt"
          IsEnabled="{c:Binding HasDecompiledFiles and Editable}"
          IsVisible="{Binding Editable}"
@@ -92,16 +92,16 @@
          Width="NaN"/>
       </StackPanel>
     </DockPanel>
-    <DockPanel DockPanel.Dock="Bottom">
-      <TextBox DockPanel.Dock="Right"
+    <TextBox DockPanel.Dock="Bottom"
        Height="200"
        IsReadOnly="True"
        TextWrapping="Wrap"
        Text="{Binding CompilationLogs}"
        CaretIndex="{Binding CompilationLogs.Length}"/>
-    </DockPanel>
-    <ContentControl Name="EditorContainer" IsEnabled="{Binding Editable}" IsVisible="{Binding Editable}" DockPanel.Dock="Right" Width="600"/>
-    <ContentControl Name="ReadOnlyContainer"/>
+    <UniformGrid Rows="1">
+      <ContentControl Name="ReadOnlyContainer" MinWidth="600"/>
+      <ContentControl Name="EditorContainer" IsEnabled="{Binding Editable}" IsVisible="{Binding Editable}" MinWidth="600"/>
+    </UniformGrid>
   </DockPanel>
 
 </rxui:ReactiveUserControl>
