@@ -379,8 +379,7 @@ public class ScriptManager
         try
         {
             var charsetName = p5r ? LangCodeToP5REncoding[langCode] : LangCodeToP5Encoding[langCode];
-            //return AtlusEncoding.Create(charsetName);
-            return AtlusEncoding.GetByName(charsetName);
+            return AtlusEncoding.Create(charsetName);
         }
         catch (Exception e)
         {

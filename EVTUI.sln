@@ -17,6 +17,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "EVTUI.Test", "src\test\EVTU
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution Items", "{8EC462FD-D22E-90A8-E5CE-7E832BA40C5D}"
 	ProjectSection(SolutionItems) = preProject
+		.gitignore = .gitignore
+		.gitmodules = .gitmodules
 		scripts\apply_patches.sh = scripts\apply_patches.sh
 		patches\Atlus-Script-Tools.patch = patches\Atlus-Script-Tools.patch
 		scripts\bootstrap_debian.sh = scripts\bootstrap_debian.sh
@@ -24,6 +26,7 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution 
 		scripts\bootstrap_win.bat = scripts\bootstrap_win.bat
 		scripts\create_patches.sh = scripts\create_patches.sh
 		patches\GFD-Studio.patch = patches\GFD-Studio.patch
+		LICENSE = LICENSE
 		README.md = README.md
 	EndProjectSection
 EndProject
