@@ -142,8 +142,9 @@ public class ScriptPanelViewModel : ViewModelBase
             if (scriptInfo is null)
                 return string.Empty;
 
-            string filePath = Config.ScriptManager.GetLocalizedFilePath(scriptInfo, Path.GetExtension(SelectedDecompiledScriptName), Config.Language);
-            return Config.ScriptManager.fileTexts[filePath];
+            var path = Path.GetExtension(SelectedDecompiledScriptName) == ".flow" ? scriptInfo.flowPath : scriptInfo.msgPath;
+            string localizedPath = Config.ScriptManager.GetLocalizedFilePath(path, Config.Language);
+            return Config.ScriptManager.fileTexts[localizedPath];
         }
         set
         {
@@ -153,8 +154,9 @@ public class ScriptPanelViewModel : ViewModelBase
             if (scriptInfo is null)
                 return;
 
-            string filePath = Config.ScriptManager.GetLocalizedFilePath(scriptInfo, Path.GetExtension(SelectedDecompiledScriptName), Config.Language);
-            Config.ScriptManager.fileTexts[filePath] = value;
+            var path = Path.GetExtension(SelectedDecompiledScriptName) == ".flow" ? scriptInfo.flowPath : scriptInfo.msgPath;
+            string localizedPath = Config.ScriptManager.GetLocalizedFilePath(path, Config.Language);
+            Config.ScriptManager.fileTexts[localizedPath] = value;
         }
     }
 
