@@ -100,7 +100,7 @@ public partial class EditorWindow : Window
         config.Language = ((ComboBox)source).SelectedItem.ToString();
         config.ScriptManager.ChangeActiveScripts();
 
-        if (!config.ReadOnly)
+        if (config.ScriptManager.ModdedScripts.Count > 0)
             ((EditorWindowViewModel)DataContext).scriptPanelVM.UpdateLog();
     }
 }

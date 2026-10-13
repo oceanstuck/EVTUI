@@ -1135,7 +1135,7 @@ public class ScriptManager
 
     public void ChangeActiveScripts()
     {
-        if (config.ReadOnly)
+        if (ModdedScripts.Count == 0)
         {
             if (VanillaScripts.Exists(s => s.scriptKind == "BF"))
                 foreach (var lang in new List<string>() { config.Language, "Japanese"})
@@ -1143,7 +1143,7 @@ public class ScriptManager
                     var vanillaScript = VanillaScripts.FirstOrDefault(s => s.language == lang && s.scriptKind == "BF", null);
                     if (vanillaScript is not null)
                     {
-                        ActiveBF = vanillaScript.path;
+                        ActiveBF = Path.Combine(GetLangCodeFromLang(vanillaScript.language), vanillaScript.pathInCpk);
                         break;
                     }
                     if (config.Language == "Japanese") // avoid redundant checking
@@ -1156,7 +1156,7 @@ public class ScriptManager
                     var vanillaScript = VanillaScripts.FirstOrDefault(s => s.language == lang && s.scriptKind == "BMD", null);
                     if (vanillaScript is not null)
                     {
-                        ActiveBMD = vanillaScript.path;
+                        ActiveBMD = Path.Combine(GetLangCodeFromLang(vanillaScript.language), vanillaScript.pathInCpk);
                         break;
                     }
                     if (config.Language == "Japanese") // avoid redundant checking
@@ -1177,20 +1177,20 @@ public class ScriptManager
 
     private void InitializeWorkingDir() // i feel like theres a better name for this but i cant think of it lol
     {
-        if (config.ReadOnly)
-        {
-            foreach (var script in VanillaScripts)
+        if (VanillaScripts.Exists(s => s.scriptKind == "BMD") && !ModdedScripts.Exists(s => s.scriptKind == "BMD"))
+            foreach (var lang in LangCodeDict.Keys)
             {
-                if (script.scriptKind == "BMD")
-                {
-                    var bmd = new BMD();
-                    bmd.Read(Path.Combine(config.VanillaExtractionPath, script.path));
-                    this.BMDFiles[script.path] = bmd;
-                }
-                // TODO bfs lol
+                var vanillaScript = VanillaScripts.FirstOrDefault(s => s.scriptKind == "BMD" && s.language == lang, null);
+                if (lang != "Japanese")
+                    vanillaScript ??= VanillaScripts.First(s => s.scriptKind == "BMD" && s.language == "Japanese");
+
+                var key = Path.Combine(GetLangCodeFromLang(vanillaScript.language), vanillaScript.pathInCpk);
+                BMDFiles[key] = new();
+                BMDFiles[key].Read(Path.Combine(config.VanillaExtractionPath, vanillaScript.path));
             }
+        // TODO same as above but for bfs lol
+        if (ModdedScripts.Count == 0)
             return;
-        }
 
         string workingDir = config.WorkingPath;
         if (!Directory.Exists(workingDir))
