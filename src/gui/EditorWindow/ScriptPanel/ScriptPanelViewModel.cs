@@ -226,12 +226,7 @@ public class ScriptPanelViewModel : ViewModelBase
         _vanillaScriptNames = new ObservableCollection<string>();
         _vanillaScriptExtNames = new ObservableCollection<string>();
         this.IsMsg = new Dictionary<string, bool>();
-        /*foreach (string scriptType in this.Config.ScriptManager.ScriptList.Keys)
-            foreach (string script in this.Config.ScriptManager.ScriptList[scriptType])
-            {
-                this._scriptNames.Add(script);
-                this.IsMsg[script] = (scriptType == "BMD");
-            }*/
+
         foreach (var vanillaScript in this.Config.ScriptManager.VanillaScripts)
         {
             _vanillaScriptNames.Add(vanillaScript.path);
