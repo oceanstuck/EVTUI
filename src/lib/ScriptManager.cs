@@ -580,7 +580,7 @@ public class ScriptManager
                 var localizedFile = GetLocalizedFilePath(file, language);
                 if (fileTexts.ContainsKey(localizedFile) && fileTexts[localizedFile] is not null)
                 {
-                    var workingPath = Path.Combine(config.WorkingPath, language, RemovePrefix(config.ProjectManager.EmulatedBfDir, file));
+                    var workingPath = Path.Combine(config.WorkingPath, GetLangCodeFromLang(language), RemovePrefix(config.ProjectManager.EmulatedBfDir, file));
                     if (file == bf.flowPath)
                         workingFlowPath = workingPath;
                     if (file == bf.msgPath)
@@ -636,7 +636,16 @@ public class ScriptManager
         {
             var vanillaBmd = FindMatchingVanillaScript(bmd, language);
             var vanillaBmdPath = vanillaBmd is null ? null : Path.Combine(config.VanillaExtractionPath, vanillaBmd.path);
-            success = TryCompileEmulatedBMD(vanillaBmdPath, new() { GetLocalizedFilePath(bmd.msgPath, language) }, GetEncodingFromLang(language), out script, out log);
+
+            var msgPath = GetLocalizedFilePath(bmd.msgPath, language);
+            var workingPath = Path.Combine(config.WorkingPath, GetLangCodeFromLang(language), RemovePrefix(config.ProjectManager.EmulatedBmdDir, msgPath));
+            if (fileTexts.ContainsKey(msgPath) && fileTexts[msgPath] is not null)
+            {
+                if (!Directory.Exists(Path.GetDirectoryName(workingPath)))
+                    Directory.CreateDirectory(Path.GetDirectoryName(workingPath));
+                File.WriteAllText(workingPath, fileTexts[msgPath]);
+            }
+            success = TryCompileEmulatedBMD(vanillaBmdPath, new() { workingPath }, GetEncodingFromLang(language), out script, out log);
         }
         else
             success = TryCompileBMD(GetLocalizedFilePath(bmd.msgPath, language), GetEncodingFromLang(language), out script, out log);

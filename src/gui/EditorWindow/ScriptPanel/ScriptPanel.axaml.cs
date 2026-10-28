@@ -167,11 +167,7 @@ public partial class ScriptPanel : ReactiveUserControl<ScriptPanelViewModel>
     }
 
     public void UpdateVanillaFileTextBox()
-    {
-        if (!(_subscription is null))
-            _subscription.Dispose();
-
-        if (String.IsNullOrEmpty(ViewModel!.SelectedVanillaDecompiledScriptName))
+    { if (String.IsNullOrEmpty(ViewModel!.SelectedVanillaDecompiledScriptName))
             return;
 
         if (ViewModel!.SelectedVanillaDecompiledScriptName.EndsWith(".msg"))
@@ -179,15 +175,12 @@ public partial class ScriptPanel : ReactiveUserControl<ScriptPanelViewModel>
             _vanillaMsgTextEditor.IsEnabled = ViewModel!.HasVanillaFiles;
             _vanillaMsgTextEditor.Document.Text = ViewModel!.SelectedVanillaScriptContent;
             ReadOnlyContainer.Content = _vanillaMsgTextEditor;
-            _subscription = this.WhenAnyValue(x => x._vanillaMsgTextEditor.Document.Text).Subscribe(x => ViewModel!.SelectedVanillaScriptContent = x);
         }
         else
         {
-        // TODO same as above
             _vanillaFlowTextEditor.IsEnabled = ViewModel!.HasVanillaFiles;
             _vanillaFlowTextEditor.Document.Text = ViewModel!.SelectedVanillaScriptContent;
             ReadOnlyContainer.Content = _vanillaFlowTextEditor;
-            _subscription = this.WhenAnyValue(x => x._vanillaFlowTextEditor.Document.Text).Subscribe(x => ViewModel!.SelectedVanillaScriptContent = x);
         }
     }
 
