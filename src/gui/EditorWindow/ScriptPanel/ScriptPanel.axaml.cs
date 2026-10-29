@@ -167,7 +167,8 @@ public partial class ScriptPanel : ReactiveUserControl<ScriptPanelViewModel>
     }
 
     public void UpdateVanillaFileTextBox()
-    { if (String.IsNullOrEmpty(ViewModel!.SelectedVanillaDecompiledScriptName))
+    { 
+        if (String.IsNullOrEmpty(ViewModel!.SelectedVanillaDecompiledScriptName))
             return;
 
         if (ViewModel!.SelectedVanillaDecompiledScriptName.EndsWith(".msg"))

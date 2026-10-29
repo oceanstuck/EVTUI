@@ -762,7 +762,7 @@ public class ScriptManager
     public Dictionary<string, string> FindLocalizedFiles(string englishFileRoute)
     {
         var localizedFiles = new Dictionary<string, string>();
-        foreach (var (lang, langCode) in LangCodeDict)
+        foreach (var langCode in LangCodeDict.Values)
         {
             var curLangFolder = Path.Combine(config.ProjectManager.LocalizedFileDir, langCode);
             if (!Directory.Exists(curLangFolder)) continue;
@@ -1130,15 +1130,9 @@ public class ScriptManager
 
     private VanillaScriptInfo FindMatchingVanillaScript(ModdedScriptInfo moddedScript, string language)
     {
-        VanillaScriptInfo vanillaScript = null;
-        foreach (var lang in new List<string> { language, "Japanese"}) // i considered having english in here but an actual mod user should only have their language cpk and base in game folder
-        {
-            vanillaScript ??= VanillaScripts.FirstOrDefault(s => s.pathInCpk.Equals(moddedScript.pathInCpk, StringComparison.InvariantCultureIgnoreCase) && s.language == lang, null);
-            if (vanillaScript != null)
-                break;
-            if (language == "Japanese") // avoid redundant checking
-                break;
-        }
+        VanillaScriptInfo vanillaScript = VanillaScripts.FirstOrDefault(s => s.pathInCpk.Equals(moddedScript.pathInCpk, StringComparison.InvariantCultureIgnoreCase) && s.language == language, null);
+        vanillaScript ??= VanillaScripts.FirstOrDefault(s => s.pathInCpk.Equals(moddedScript.pathInCpk, StringComparison.InvariantCultureIgnoreCase) && s.language == "Japanese", null);
+
         return vanillaScript;
     }
 
@@ -1147,30 +1141,22 @@ public class ScriptManager
         if (ModdedScripts.Count == 0)
         {
             if (VanillaScripts.Exists(s => s.scriptKind == "BF"))
-                foreach (var lang in new List<string>() { config.Language, "Japanese"})
-                {
-                    var vanillaScript = VanillaScripts.FirstOrDefault(s => s.language == lang && s.scriptKind == "BF", null);
-                    if (vanillaScript is not null)
-                    {
-                        ActiveBF = Path.Combine(GetLangCodeFromLang(vanillaScript.language), vanillaScript.pathInCpk);
-                        break;
-                    }
-                    if (config.Language == "Japanese") // avoid redundant checking
-                        break;
-                }
+            {
+                var vanillaScript = VanillaScripts.FirstOrDefault(s => s.language == config.Language && s.scriptKind == "BF", null);
+                if (config.Language != "Japanese")
+                    vanillaScript ??= VanillaScripts.First(s => s.scriptKind == "BF" && s.language == "Japanese");
+
+                ActiveBF = Path.Combine(GetLangCodeFromLang(vanillaScript.language), vanillaScript.pathInCpk);
+            }
 
             if (VanillaScripts.Exists(s => s.scriptKind == "BMD"))
-                foreach (var lang in new List<string>() { config.Language, "Japanese" })
-                {
-                    var vanillaScript = VanillaScripts.FirstOrDefault(s => s.language == lang && s.scriptKind == "BMD", null);
-                    if (vanillaScript is not null)
-                    {
-                        ActiveBMD = Path.Combine(GetLangCodeFromLang(vanillaScript.language), vanillaScript.pathInCpk);
-                        break;
-                    }
-                    if (config.Language == "Japanese") // avoid redundant checking
-                        break;
-                }
+            {
+                var vanillaScript = VanillaScripts.FirstOrDefault(s => s.language == config.Language && s.scriptKind == "BMD", null);
+                if (config.Language != "Japanese")
+                    vanillaScript ??= VanillaScripts.First(s => s.scriptKind == "BMD" && s.language == "Japanese");
+
+                ActiveBMD = Path.Combine(GetLangCodeFromLang(vanillaScript.language), vanillaScript.pathInCpk);
+            }
         }
         else
         {
@@ -1204,7 +1190,7 @@ public class ScriptManager
         string workingDir = config.WorkingPath;
         if (!Directory.Exists(workingDir))
             Directory.CreateDirectory(workingDir);
-        foreach (var lang in LangCodeDict.Keys)
+        foreach (var lang in LangCodeDict.Values)
             Directory.CreateDirectory(Path.Combine(workingDir, lang));
 
         void UseVanillaScriptForPreview(ModdedScriptInfo script, string language)
